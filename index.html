@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0a05" />
+<title>الباك رومز | Backrooms 3D</title>
+<style>
+  :root { --gold:#e0cf8a; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#000;
+    font-family:"Segoe UI",Tahoma,system-ui,sans-serif;
+    touch-action:none; overscroll-behavior:none; user-select:none; -webkit-user-select:none; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  /* ===== شاشة البداية ===== */
+  #overlay {
+    position:fixed; inset:0; z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px; cursor:pointer; color:var(--gold);
+    background:radial-gradient(circle at 50% 45%, #322a13 0%, #0b0a05 75%);
+    transition:opacity .5s ease, visibility .5s;
+  }
+  #overlay.hide { opacity:0; visibility:hidden; pointer-events:none; }
+  #overlay h1 { font-size:clamp(26px,6vw,52px); letter-spacing:.35em;
+    margin-bottom:18px; text-shadow:0 0 30px rgba(200,170,70,.6); }
+  #overlay p { max-width:520px; line-height:1.9; opacity:.75;
+    font-size:clamp(13px,2.2vw,16px); }
+  #overlay .start { margin-top:26px; padding:12px 34px;
+    border:1px solid rgba(224,207,138,.45); border-radius:10px;
+    background:rgba(224,207,138,.08); letter-spacing:.1em;
+    animation:pulse 2.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+
+  /* ===== HUD ===== */
+  #hud { position:fixed; inset:0; z-index:10; pointer-events:none; }
+  #dot { position:absolute; left:50%; top:50%; width:5px; height:5px;
+    margin:-2.5px 0 0 -2.5px; border-radius:50%;
+    background:rgba(255,250,220,.6); box-shadow:0 0 8px rgba(0,0,0,.7); }
+  #tip { position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+    color:rgba(224,207,138,.45); font-size:12px; letter-spacing:.05em;
+    white-space:nowrap; }
+
+  /* ===== عصا التحكم ===== */
+  #joystick {
+    position:fixed;
+    bottom:max(24px, env(safe-area-inset-bottom, 0px));
+    left:max(24px, env(safe-area-inset-left, 0px));
+    width:min(130px, 26vmin);
+    height:min(130px, 26vmin);
+    border-radius:50%;
+    background:rgba(224,207,138,0.07);
+    border:2px solid rgba(224,207,138,0.22);
+    z-index:15;
+    touch-action:none;
+    display:none;
+    box-shadow:0 0 24px rgba(0,0,0,.4) inset;
+  }
+  #stick {
+    position:absolute;
+    left:50%; top:50%;
+    width:46%; height:46%;
+    margin-left:-23%; margin-top:-23%;
+    border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, rgba(224,207,138,0.5), rgba(224,207,138,0.25));
+    border:2px solid rgba(224,207,138,0.5);
+    box-shadow:0 0 12px rgba(224,207,138,0.3);
+    will-change:transform;
+  }
+
+  /* ===== زر الجري ===== */
+  #sprintBtn {
+    position:fixed;
+    bottom:max(40px, env(safe-area-inset-bottom, 0px));
+    right:max(28px, env(safe-area-inset-right, 0px));
+    width:min(84px, 18vmin);
+    height:min(84px, 18vmin);
+    border-radius:50%;
+    background:rgba(224,207,138,0.12);
+    border:2px solid rgba(224,207,138,0.3);
+    z-index:15;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    color:var(--gold);
+    font-size:clamp(20px, 5vmin, 30px);
+    touch-action:none;
+    transition:background .15s, box-shadow .15s;
+  }
+  #sprintBtn.active {
+    background:rgba(224,207,138,0.45);
+    box-shadow:0 0 20px rgba(224,207,138,0.5);
+    border-color:rgba(224,207,138,0.7);
+  }
+
+  /* ===== تلميح الجوال ===== */
+  #mobileHint {
+    position:absolute;
+    bottom:calc(100% - 100% + 170px);
+    left:50%;
+    transform:translateX(-50%);
+    color:rgba(224,207,138,0.7);
+    font-size:13px;
+    text-align:center;
+    animation:fadeHint 7s forwards;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  @keyframes fadeHint {
+    0% { opacity:0; }
+    12% { opacity:1; }
+    78% { opacity:1; }
+    100% { opacity:0; }
+  }
+
+  /* ===== شاشة تدوير الجهاز ===== */
+  #rotate {
+    position:fixed; inset:0;
+    z-index:100;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background:#0b0a05;
+    color:var(--gold);
+    text-align:center;
+    padding:24px;
+  }
+  #rotate .phone-icon {
+    font-size:76px;
+    animation:rotateAnim 2.2s infinite ease-in-out;
+    margin-bottom:24px;
+  }
+  @keyframes rotateAnim {
+    0%,100% { transform:rotate(0deg); }
+    50% { transform:rotate(90deg); }
+  }
+  #rotate p { font-size:clamp(14px,3vw,18px); opacity:.75; }
+
+  /* ===== إظهار عناصر اللمس ===== */
+  body.touch #joystick { display:block; }
+  body.touch #sprintBtn { display:flex; }
+  body.touch #tip { display:none; }
+  body.touch #dot { width:4px; height:4px; }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<div id="hud">
+  <div id="dot"></div>
+  <div id="tip">WASD للحركة • الفأرة للنظر • Shift للجري • M لكتم الصوت • Esc للخروج</div>
+</div>
+
+<div id="joystick"><div id="stick"></div></div>
+<div id="sprintBtn">⚡</div>
+
+<div id="overlay">
+  <h1>BACKROOMS</h1>
+  <p>المستوى 0 — ممرات صفراء لا نهاية لها، وأزيز مصابيح لا يتوقف.<br>لا توجد خرائط. لا توجد مخارج.</p>
+  <p id="mobileDesc" style="display:none;margin-top:14px;font-size:13px;opacity:.55;">
+    عصا التحكم للحركة • السحب للنظر • ⚡ للجري
+  </p>
+  <div class="start">انقر للدخول</div>
+</div>
+
+<div id="rotate">
+  <div class="phone-icon">📱</div>
+  <p>قم بتدوير هاتفك إلى الوضع الأفقي</p>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+/* =====================================================
+   0) كشف نوع الجهاز
+   ===================================================== */
+const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches
+             || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || isTouch;
+
+if (isTouch) {
+  document.body.classList.add('touch');
+  document.getElementById('mobileDesc').style.display = 'block';
+}
+
+/* =====================================================
+   1) الإعدادات العامة
+   ===================================================== */
+const COLS = 45, ROWS = 45;
+const CELL = 3.2;
+const WALL_H = 3.0;
+const EYE = 1.65;
+const halfW = COLS * CELL / 2;
+const halfD = ROWS * CELL / 2;
+
+/* =====================================================
+   2) العارض / المشهد / الكاميرا
+   ===================================================== */
+const canvas   = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:!isMobile, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const FOG_COLOR = 0x8d8146;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(FOG_COLOR);
+scene.fog = new THREE.FogExp2(FOG_COLOR, isMobile ? 0.042 : 0.038);
+
+const camera = new THREE.PerspectiveCamera(isMobile ? 82 : 75, innerWidth/innerHeight, 0.05, 130);
+camera.rotation.order = 'YXZ';
+
+/* =====================================================
+   3) توليد المُعيّنات برمجياً
+   ===================================================== */
+function makeCanvas(size){
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  return [c, c.getContext('2d')];
+}
+function toTexture(c){
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+
+function wallpaperTexture(){
+  const S = 256, [c, ctx] = makeCanvas(S);
+  ctx.fillStyle = '#c6b273'; ctx.fillRect(0, 0, S, S);
+  for (let i = 0; i < 24000; i++){
+    const x = Math.random()*S, y = Math.random()*S, v = (Math.random()-.5)*26;
+    ctx.fillStyle = `rgba(${185+v|0},${165+v|0},${100+v|0},0.20)`;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  for (let x = 0; x < S; x += 32){
+    ctx.fillStyle = 'rgba(120,100,50,0.10)'; ctx.fillRect(x, 0, 2, S);
+    ctx.fillStyle = 'rgba(255,245,200,0.07)'; ctx.fillRect(x+2, 0, 2, S);
+  }
+  for (let i = 0; i < 22; i++){
+    const x = Math.random()*S, y = Math.random()*S, r = 8 + Math.random()*30;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(95,80,38,0.15)');
+    g.addColorStop(1, 'rgba(95,80,38,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  ctx.fillStyle = '#8a7742'; ctx.fillRect(0, S-16, S, 16);
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, S-19, S, 3);
+  ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(0, S-16, S, 2);
+  return toTexture(c);
+}
+
+function carpetTexture(){
+  const S = 256, [c, ctx] = makeCanvas(S);
+  ctx.fillStyle = '#8b7a45'; ctx.fillRect(0, 0, S, S);
+  for (let i = 0; i < 40000; i++){
+    const x = Math.random()*S, y = Math.random()*S, v = (Math.random()-.5)*48;
+    ctx.fillStyle = `rgba(${140+v|0},${122+v|0},${70+v|0},0.30)`;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  for (let i = 0; i < 30; i++){
+    const x = Math.random()*S, y = Math.random()*S, r = 6 + Math.random()*26;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(60,50,25,0.20)');
+    g.addColorStop(1, 'rgba(60,50,25,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  return toTexture(c);
+}
+
+function ceilingTexture(){
+  const S = 256, [c, ctx] = makeCanvas(S);
+  ctx.fillStyle = '#d2c9a0'; ctx.fillRect(0, 0, S, S);
+  for (let i = 0; i < 14000; i++){
+    const x = Math.random()*S, y = Math.random()*S, v = (Math.random()-.5)*22;
+    ctx.fillStyle = `rgba(${200+v|0},${192+v|0},${150+v|0},0.25)`;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  ctx.strokeStyle = 'rgba(95,90,65,.55)'; ctx.lineWidth = 4;
+  ctx.strokeRect(0, 0, S, S);
+  ctx.beginPath(); ctx.moveTo(S/2, 0); ctx.lineTo(S/2, S);
+  ctx.moveTo(0, S/2); ctx.lineTo(S, S/2); ctx.stroke();
+  for (let i = 0; i < 14; i++){
+    const x = Math.random()*S, y = Math.random()*S, r = 5 + Math.random()*18;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(120,110,70,0.18)');
+    g.addColorStop(1, 'rgba(120,110,70,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  return toTexture(c);
+}
+
+/* =====================================================
+   4) توليد المتاهة
+   ===================================================== */
+function generateGrid(){
+  const g = Array.from({ length: ROWS }, () => new Array(COLS).fill(1));
+
+  const stack = [[1, 1]];
+  g[1][1] = 0;
+  while (stack.length){
+    const [x, y] = stack[stack.length - 1];
+    const opts = [];
+    for (const [dx, dy] of [[2,0],[-2,0],[0,2],[0,-2]]){
+      const nx = x + dx, ny = y + dy;
+      if (nx > 0 && nx < COLS-1 && ny > 0 && ny < ROWS-1 && g[ny][nx] === 1)
+        opts.push([dx, dy]);
+    }
+    if (!opts.length){ stack.pop(); continue; }
+    const [dx, dy] = opts[(Math.random() * opts.length) | 0];
+    g[y + dy/2][x + dx/2] = 0;
+    g[y + dy][x + dx] = 0;
+    stack.push([x + dx, y + dy]);
+  }
+
+  for (let i = 0; i < 26; i++){
+    const w = 3 + 2 * ((Math.random() * 3) | 0);
+    const h = 3 + 2 * ((Math.random() * 3) | 0);
+    const x0 = 1 + Math.floor(Math.random() * (COLS - w - 2));
+    const y0 = 1 + Math.floor(Math.random() * (ROWS - h - 2));
+    for (let y = y0; y < y0 + h; y++)
+      for (let x = x0; x < x0 + w; x++)
+        if (x > 0 && x < COLS-1 && y > 0 && y < ROWS-1) g[y][x] = 0;
+  }
+
+  for (let i = 0; i < 380; i++){
+    const x = 1 + ((Math.random() * (COLS - 2)) | 0);
+    const y = 1 + ((Math.random() * (ROWS - 2)) | 0);
+    g[y][x] = 0;
+  }
+
+  g[1][1] = g[1][2] = g[2][1] = 0;
+  return g;
+}
+
+const grid = generateGrid();
+
+const cellX = c => (c + 0.5) * CELL - halfW;
+const cellZ = r => (r + 0.5) * CELL - halfD;
+
+/* =====================================================
+   5) بناء العالم
+   ===================================================== */
+const wallTex   = wallpaperTexture();
+const carpetTex = carpetTexture();
+const ceilTex   = ceilingTexture();
+
+carpetTex.repeat.set(COLS * 0.5, ROWS * 0.5);
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(COLS * CELL, ROWS * CELL),
+  new THREE.MeshStandardMaterial({ map: carpetTex, roughness: 1, metalness: 0 })
+);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+
+ceilTex.repeat.set(COLS * 0.5, ROWS * 0.5);
+const ceiling = new THREE.Mesh(
+  new THREE.PlaneGeometry(COLS * CELL, ROWS * CELL),
+  new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 1, metalness: 0 })
+);
+ceiling.rotation.x = Math.PI / 2;
+ceiling.position.y = WALL_H - 0.005;
+scene.add(ceiling);
+
+const wallCells = [];
+for (let r = 0; r < ROWS; r++)
+  for (let c = 0; c < COLS; c++)
+    if (grid[r][c] === 1) wallCells.push([c, r]);
+
+const wallGeo = new THREE.BoxGeometry(CELL, WALL_H, CELL);
+const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.96, metalness: 0 });
+const walls = new THREE.InstancedMesh(wallGeo, wallMat, wallCells.length);
+walls.frustumCulled = false;
+{
+  const m = new THREE.Matrix4();
+  wallCells.forEach(([c, r], i) => {
+    m.makeTranslation(cellX(c), WALL_H / 2, cellZ(r));
+    walls.setMatrixAt(i, m);
+  });
+  walls.instanceMatrix.needsUpdate = true;
+}
+scene.add(walls);
+
+const lampPositions = [];
+{
+  const lampGeo = new THREE.PlaneGeometry(CELL * 0.62, CELL * 0.62);
+  lampGeo.rotateX(Math.PI / 2);
+
+  const list = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c] === 0 && c % 4 === 0 && r % 4 === 0) list.push([c, r]);
+
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff6cf });
+  const lamps = new THREE.InstancedMesh(lampGeo, lampMat, list.length);
+  lamps.frustumCulled = false;
+
+  const m = new THREE.Matrix4();
+  list.forEach(([c, r], i) => {
+    const x = cellX(c), z = cellZ(r);
+    m.makeTranslation(x, WALL_H - 0.02, z);
+    lamps.setMatrixAt(i, m);
+    lampPositions.push(new THREE.Vector3(x, WALL_H - 0.35, z));
+  });
+  lamps.instanceMatrix.needsUpdate = true;
+  scene.add(lamps);
+}
+
+/* =====================================================
+   6) الإضاءة
+   ===================================================== */
+scene.add(new THREE.AmbientLight(0xfff0c8, 0.78));
+scene.add(new THREE.HemisphereLight(0xfff6d8, 0x3a331c, isMobile ? 0.6 : 0.55));
+
+const POOL = isMobile ? 4 : 6;
+const lightPool = [];
+for (let i = 0; i < POOL; i++){
+  const l = new THREE.PointLight(0xfff0c0, 22, 26, 2.0);
+  scene.add(l);
+  lightPool.push({ light: l, phase: Math.random() * 100, off: 0 });
+}
+
+/* =====================================================
+   7) اللاعب والتحكم
+   ===================================================== */
+const player = new THREE.Vector3(cellX(1), 0, cellZ(1));
+const vel    = new THREE.Vector2(0, 0);
+let yaw = 0, pitch = 0, bob = 0;
+
+const keys = Object.create(null);
+addEventListener('keydown', e => { keys[e.code] = true; });
+addEventListener('keyup',   e => { keys[e.code] = false; });
+
+/* ===== حالة اللعبة ===== */
+const overlay = document.getElementById('overlay');
+let gameRunning = false;
+
+function startGame(){
+  overlay.classList.add('hide');
+  gameRunning = true;
+  startHum();
+  if (isTouch && !document.getElementById('mobileHint')){
+    const hint = document.createElement('div');
+    hint.id = 'mobileHint';
+    hint.textContent = 'حرّك بالعصا • انظر بالسحب • ⚡ للجري';
+    document.getElementById('hud').appendChild(hint);
+  }
+}
+function stopGame(){
+  if (isTouch) return;
+  overlay.classList.remove('hide');
+  gameRunning = false;
+}
+
+/* ===== بدء اللعبة ===== */
+overlay.addEventListener('click', async () => {
+  if (isTouch) {
+    // محاولة ملء الشاشة وقفل الاتجاه (قد تفشل على iOS)
+    try {
+      if (document.documentElement.requestFullscreen)
+        await document.documentElement.requestFullscreen();
+    } catch(e) {}
+    try {
+      if (screen.orientation && screen.orientation.lock)
+        await screen.orientation.lock('landscape').catch(() => {});
+    } catch(e) {}
+    startGame();
+  } else {
+    canvas.requestPointerLock();
+  }
+});
+
+/* ===== قفل المؤشر (سطح المكتب) ===== */
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === canvas) startGame();
+  else stopGame();
+});
+
+/* ===== حركة الفأرة (سطح المكتب) ===== */
+document.addEventListener('mousemove', e => {
+  if (document.pointerLockElement !== canvas) return;
+  const s = 0.0022;
+  yaw   -= e.movementX * s;
+  pitch -= e.movementY * s;
+  const lim = Math.PI / 2 - 0.05;
+  pitch = Math.max(-lim, Math.min(lim, pitch));
+});
+
+/* =====================================================
+   8) التحكم باللمس (الجوال)
+   ===================================================== */
+/* --- النظر بالسحب على الشاشة --- */
+let lookPointerId = null;
+let lookLastX = 0, lookLastY = 0;
+
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse') return;
+  if (lookPointerId !== null) return;
+  lookPointerId = e.pointerId;
+  lookLastX = e.clientX;
+  lookLastY = e.clientY;
+  try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerId !== lookPointerId) return;
+  const dx = e.clientX - lookLastX;
+  const dy = e.clientY - lookLastY;
+  lookLastX = e.clientX;
+  lookLastY = e.clientY;
+  const s = 0.0045;
+  yaw   -= dx * s;
+  pitch -= dy * s;
+  const lim = Math.PI / 2 - 0.05;
+  pitch = Math.max(-lim, Math.min(lim, pitch));
+});
+function releaseLook(e){
+  if (e.pointerId === lookPointerId) lookPointerId = null;
+}
+canvas.addEventListener('pointerup', releaseLook);
+canvas.addEventListener('pointercancel', releaseLook);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+/* --- عصا التحكم --- */
+const joystick = document.getElementById('joystick');
+const stick    = document.getElementById('stick');
+let joyPointerId = null;
+let joyX = 0, joyY = 0;
+
+function setStickFromEvent(e){
+  const rect = joystick.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  let dx = e.clientX - cx;
+  let dy = e.clientY - cy;
+  const maxR = rect.width * 0.34;
+  const dist = Math.hypot(dx, dy);
+  if (dist > maxR){
+    dx = dx / dist * maxR;
+    dy = dy / dist * maxR;
+  }
+  stick.style.transform = `translate(${dx}px, ${dy}px)`;
+  joyX = dx / maxR;
+  joyY = dy / maxR;
+}
+
+joystick.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (joyPointerId !== null) return;
+  joyPointerId = e.pointerId;
+  try { joystick.setPointerCapture(e.pointerId); } catch(err) {}
+  setStickFromEvent(e);
+});
+joystick.addEventListener('pointermove', e => {
+  if (e.pointerId !== joyPointerId) return;
+  setStickFromEvent(e);
+});
+function releaseJoy(e){
+  if (e.pointerId !== joyPointerId) return;
+  joyPointerId = null;
+  joyX = joyY = 0;
+  stick.style.transform = 'translate(0,0)';
+}
+joystick.addEventListener('pointerup', releaseJoy);
+joystick.addEventListener('pointercancel', releaseJoy);
+
+/* --- زر الجري (تبديل) --- */
+const sprintBtn = document.getElementById('sprintBtn');
+let sprintActive = false;
+sprintBtn.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  sprintActive = !sprintActive;
+  sprintBtn.classList.toggle('active', sprintActive);
+});
+
+/* =====================================================
+   9) الاصطدام
+   ===================================================== */
+function blockedAt(x, z){
+  const c = Math.floor((x + halfW) / CELL);
+  const r = Math.floor((z + halfD) / CELL);
+  if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return true;
+  return grid[r][c] === 1;
+}
+function canStand(x, z){
+  const r = 0.38;
+  return !blockedAt(x - r, z - r) && !blockedAt(x + r, z - r) &&
+         !blockedAt(x - r, z + r) && !blockedAt(x + r, z + r);
+}
+
+/* =====================================================
+   10) صوت الأزيز
+   ===================================================== */
+let audioCtx = null, humGain = null;
+function startHum(){
+  if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const o1 = audioCtx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 60;
+    const o2 = audioCtx.createOscillator(); o2.type = 'sine';     o2.frequency.value = 120;
+    const o3 = audioCtx.createOscillator(); o3.type = 'triangle'; o3.frequency.value = 180.5;
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 420;
+
+    humGain = audioCtx.createGain();
+    humGain.gain.value = 0.03;
+
+    const lfo = audioCtx.createOscillator(); lfo.frequency.value = 7.3;
+    const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 0.008;
+    lfo.connect(lfoGain); lfoGain.connect(humGain.gain);
+
+    o1.connect(filter); o2.connect(filter); o3.connect(filter);
+    filter.connect(humGain); humGain.connect(audioCtx.destination);
+
+    o1.start(); o2.start(); o3.start(); lfo.start();
+  } catch (err) {}
+}
+
+/* =====================================================
+   11) الحلقة الرئيسية
+   ===================================================== */
+const clock = { last: performance.now() };
+
+function update(dt, time){
+  /* ---- مدخلات الحركة ---- */
+  let mx = 0, mz = 0, inputMag = 0;
+
+  // لوحة المفاتيح
+  {
+    let kx = 0, kz = 0;
+    if (keys['KeyW'] || keys['ArrowUp'])    kz += 1;
+    if (keys['KeyS'] || keys['ArrowDown'])  kz -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) kx += 1;
+    if (keys['KeyA'] || keys['ArrowLeft'])  kx -= 1;
+    const kLen = Math.hypot(kx, kz);
+    if (kLen > 0){ mx = kx / kLen; mz = kz / kLen; inputMag = 1; }
+  }
+
+  // عصا التحكم (تتجاوز لوحة المفاتيح إذا نشطة)
+  if (joyPointerId !== null){
+    const jLen = Math.hypot(joyX, joyY);
+    if (jLen > 0.08){
+      mx = joyX / jLen;
+      mz = -joyY / jLen;
+      inputMag = Math.min(1, jLen);
+    } else {
+      mx = 0; mz = 0; inputMag = 0;
+    }
+  }
+
+  /* ---- الجري ---- */
+  const sprint = sprintActive || keys['ShiftLeft'] || keys['ShiftRight'];
+  const baseSpeed = sprint ? 6.3 : 3.1;
+  const speed = baseSpeed * inputMag;
+
+  /* ---- حساب اتجاه الحركة ---- */
+  let dx = 0, dz = 0;
+  if (inputMag > 0.05){
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    const rx =  Math.cos(yaw), rz = -Math.sin(yaw);
+    dx = (fx * mz + rx * mx) * speed;
+    dz = (fz * mz + rz * mx) * speed;
+  }
+
+  /* ---- تسارع/تباطؤ ناعم ---- */
+  const k = Math.min(1, dt * 14);
+  vel.x += (dx - vel.x) * k;
+  vel.y += (dz - vel.y) * k;
+
+  /* ---- حركة مع اصطدام على كل محور ---- */
+  const nx = player.x + vel.x * dt;
+  if (canStand(nx, player.z)) player.x = nx; else vel.x = 0;
+  const nz = player.z + vel.y * dt;
+  if (canStand(player.x, nz)) player.z = nz; else vel.y = 0;
+
+  /* ---- اهتزاز الرأس ---- */
+  const sp = Math.hypot(vel.x, vel.y);
+  bob += sp * dt * 2.6;
+  const bobY = Math.sin(bob) * 0.035 * Math.min(1, sp / 3);
+
+  camera.position.set(player.x, EYE + bobY, player.z);
+  camera.rotation.set(pitch, yaw, 0);
+
+  /* ---- توزيع الأضواء على أقرب المصابيح ---- */
+  const px = player.x, pz = player.z;
+  const ranked = lampPositions
+    .map(p => ({ p, d: (p.x - px) * (p.x - px) + (p.z - pz) * (p.z - pz) }))
+    .sort((a, b) => a.d - b.d);
+
+  for (let i = 0; i < lightPool.length; i++){
+    const entry = lightPool[i];
+    const target = ranked[i];
+    if (!target){ entry.light.intensity = 0; continue; }
+    entry.light.position.copy(target.p);
+
+    if (Math.random() < 0.0035) entry.off = 0.12 + Math.random() * 0.18;
+    entry.off = Math.max(0, entry.off - dt);
+
+    const base = 0.92 + 0.08 * Math.sin(time * 9 + entry.phase);
+    const mul  = entry.off > 0 ? 0.12 : base;
+    entry.light.intensity = 22 * mul;
+  }
+}
+
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (now - clock.last) / 1000);
+  clock.last = now;
+
+  if (gameRunning) update(dt, now / 1000);
+  else {
+    camera.position.set(player.x, EYE, player.z);
+    camera.rotation.set(pitch, yaw + Math.sin(now / 4000) * 0.25, 0);
+  }
+
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+/* =====================================================
+   12) تغيير الحجم + الوضع الأفقي
+   ===================================================== */
+function onResize(){
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(onResize, 200));
+
+/* ===== كشف الوضع الرأسي على الجوال ===== */
+function updateOrientation(){
+  const portrait = window.innerHeight > window.innerWidth;
+  const rotateEl = document.getElementById('rotate');
+  rotateEl.style.display = (isTouch && portrait) ? 'flex' : 'none';
+}
+updateOrientation();
+addEventListener('resize', updateOrientation);
+addEventListener('orientationchange', () => setTimeout(updateOrientation, 200));
+
+/* =====================================================
+   13) كتم الصوت
+   ===================================================== */
+addEventListener('keydown', e => {
+  if (e.code === 'KeyM' && humGain)
+    humGain.gain.value = humGain.gain.value > 0 ? 0 : 0.03;
+});
+
+/* =====================================================
+   14) إيقاف المؤشر عند تبديل التبويب
+   ===================================================== */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && !isTouch && document.pointerLockElement === canvas)
+    document.exitPointerLock();
+});
+</script>
+</body>
+</html>
